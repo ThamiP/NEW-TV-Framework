@@ -1,0 +1,36 @@
+name: Apply v1.1.0 payload f
+
+on:
+  push:
+    branches:
+      - chatgpt/ict-fm-v1-1-0-clean-execution
+    paths:
+      - '.upgrade-v110f/**'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply complete payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          for n in $(seq -w 0 26); do
+            test -f ".upgrade-v110f/part${n}" || { echo "Payload incomplete; waiting for part${n}"; exit 0; }
+          done
+          cat .upgrade-v110f/part* | base64 --decode > /tmp/v110.tgz
+          echo '7ecd2c6858c8c8e697fe9e4d7ee596bf7dfcaff597a8755a41d19a0a0f281b9f  /tmp/v110.tgz' | sha256sum --check
+          tar -xzf /tmp/v110.tgz
+          python3 tools/check_source.py
+          rm -rf .upgrade .upgrade-v110b .upgrade-v110c .upgrade-v110d .upgrade-v110f
+          rm -f .github/workflows/apply-v110.yml .github/workflows/apply-v110f.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m 'Upgrade ICT Fractal Models to v1.1.0'
+          git push origin HEAD:${GITHUB_REF_NAME}
